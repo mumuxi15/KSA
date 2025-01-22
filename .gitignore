@@ -4,6 +4,7 @@
 # ----- FOLDERS ----- #
 cython_debug/
 .idea/
+
 test/
 data/
 proj/
@@ -19,7 +20,6 @@ secret_key.py
 aws_keys.md
 SQL.md
 SECRET.md
-order.json
 
 
 # ----- FORMAT ----- #
@@ -42,7 +42,9 @@ __pycache__/
 # Distribution / packaging
 migrations/
 \
-.env
+.pytest_cache
+.idea
+.delete
 .Python
 build/
 develop-eggs/

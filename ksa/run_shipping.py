@@ -75,8 +75,8 @@ def email_suppliers(df, sendto='default'):
     col = ['PURORD', 'SUPPLR', 'PRODCT','ORDQTY','OUTQTY', 'CONDAT', 'NEWCONDAT', 'TYPE']
     nan_rows = df[df['EMAIL'].isna()]
     if len(nan_rows) > 1:
-        warnings.warn("supplier emails missing")
         print (nan_rows)
+        warnings.warn("supplier emails missing")
 
     for contact in df['EMAIL'].dropna().unique():
         table = df.loc[df['EMAIL'] == contact,col]
@@ -142,6 +142,7 @@ def get_GTIN_by_item(item):
             where PRODCT in {item} AND TYPE=4""")
     print (df)
     print (df.columns)
+
 def check_by_item(item):
     item = tuple(item) if isinstance(item, list) else f'({item})'
     df = query_search(target="shipping_by_item",item_tuple=item)
@@ -158,15 +159,25 @@ def remind_supplier_late(summary, df):
         style, html = format_table(table)
         send_late_reminders(recipient=contact,sentfrom='Penny', highlight=style, table=html)
 
+def update_supplier_data():
+    # get_supplier_contacts()
+    df = query_search(target="getsupplrcontacts")
+    # df.to_csv('tmp.csv')
+    print (df)
+
+
 if __name__ == '__main__':
     deadline = get_end_month()
     today = datetime.datetime.now().date()
     lateline = today - datetime.timedelta(days=21)
-    check_by_item(['CC0748DC','C7954GP'])
-    get_GTIN_by_item(["ZDH991288",""])
+    # check_by_item(['CC0748DC','C7954GP'])
+    # get_GTIN_by_item(["ZDH991288",""])
+
+    # update_supplier_data()
 
     df, ann = query_open_order(Ann=True)
     # print (df)
+    # print (ann)
     # email_suppliers(df, sendto='default')  #send emails monthly
     # email_suppliers(ann, sendto='Ann')
     # summary = gen_tracking_sheet(df,savecsv=True)

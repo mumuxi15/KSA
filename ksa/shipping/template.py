@@ -88,12 +88,13 @@ def send_email(recipient, sentfrom, title, highlight, table):
         </head>
     <body>
     <p>Hello, </p>
-    <p>Our records indicate that following purchase orders or PO balance will be due for shipment, where ORDQTY is the ordered quantity and OUTQTY is the remaining quantity to ship.<p>
+    <p>Our records indicate that following purchase orders or PO balance will be due for shipment, where ORDERED is the ordered quantity and OUTQTY is the remaining quantity to ship.<p>
     {table}
     
     <p class="red">IMPORTANT: YOU MUST BOOK OUR ORDER WITH MOL 3 WEEKS IN ADVANCE TO RESERVE A SPACE. </p>
-    <p>Please send me a copy of the packing list and FCR, along with the full shipping information after you ship out our goods.</p>
-    <p>If there are any shipping related questions, please email import@kurtadler.com or Charlene. </p>
+    <p>Please cc Jackie when you send Lily invoices, packing list and FCR.</p>
+    <p>For any MOL-related questions, please email import@kurtadler.com or Charlene. </p>
+    <p>If there is a delay or need to extend the ship date, please email me. </p>
     <p>Thank you!</p>
     <p>
     <br>{sentfrom}<br/>
