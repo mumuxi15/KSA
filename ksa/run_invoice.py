@@ -2,14 +2,31 @@ import os
 import glob
 import sqlite3
 import pandas as pd
-import numpy as np
+import gspread
 from datetime import datetime
 from config.env import env, PATH, ROUNDING_ERROR
 from invoice import extract_data
 from query import query_search, query_direct
+from shipping import send_price_request
+from config.contacts import *
+
 pd.set_option('display.max_columns',10)
 def function1():
     return "Hello from function1 in module1"
+
+def get_supplier_emails():
+    """ GET SUPPLIER EMAIL FROM GSHEET  """
+    gc = gspread.service_account(filename=PATH['gsheet_key'])
+    sh = gc.open_by_key(env("SUPPLIER_WORKSHEET_KEY"))
+    df = pd.DataFrame(sh.get_worksheet(0).get_all_records())
+
+    # Save DataFrame to SQLite table
+    conn = sqlite3.connect(PATH['db_path'])
+    df[['SUPPLR', 'EMAIL']].to_sql('supplier', conn, index=False, if_exists='replace')
+    # Close the connection
+    conn.close()
+    print ('====   SUPPLIER CONTACTS UPDATED IN LOCAL DB !  ===== ')
+    return
 
 def excel_to_sqlite(excel_file, table_name, db_file):
     # everytime save to db, record history.
@@ -83,36 +100,25 @@ class NewOrder:
             df = pd.concat(self.read_customer_po(order['customer']))
             # df.to_csv(order['customer'].replace('.pdf','.csv'))  # save customer po pdf to csv
             df['ticket'] = self.ticket
-
-            if 'not_ticket' in order:
-                for item in order['not_ticket']:
-                    print('not ticket: ', item)
-                    df.loc[df['Product'] == item, 'ticket'] = 0
             if 'updates' in order:
                 for item_id, v in order['updates'].items():
                     for col, value in v.items():
                         df.loc[df['Product'] == item_id, col] = value
                         print('updated ', item_id, col, value)
-            query = query_search(target='inventory', item_tuple=tuple(df['Product'].values)) # read_inventory from dbo
+            quoted_items ='(' + ','.join([f"'{item}'" for item in df['Product'].values])+ ')'
+            query = query_search(target='inventory', item_tuple=quoted_items) # read_inventory from dbo
+
             df = pd.merge(df, query, how='left', left_on='Product', right_on='Item')
             if len(df.loc[df['Status'].isna()])>0:
                 print (df.loc[df['Status'].isna()])
                 df = df.loc[~df['Status'].isna()]
 
             if len(df.loc[df['Qty']>df['NETAVAIL']])>0:
-                print ('----'*5,'QTY > NET AVAILABLE ','----'*5)
+                print ('----'*5,'NET AVAILABLE ERROR :   QTY WANTED > AVAILABLE ','----'*5)
                 print (df.loc[df['Qty']>df['NETAVAIL']])
 
             df['caseflag'] = df['Qty'].astype(int) % df['CaseQty'].astype(int)
             df.loc[df['caseflag'] == 0, 'No.Case'] = df.loc[df['caseflag'] == 0, 'Qty'] // df.loc[df['caseflag'] == 0, 'CaseQty']
-
-            # if 'rules' in order:
-            #     if order['rules'] == 'roundup to case qty':
-            #         df['No.Case'] = np.ceil(df['Qty']/df['CaseQty'])
-            #         df['Qty'] = df['No.Case']*df['CaseQty']
-            #     else:
-            #         print('RULES NOT FOUND ')
-            #         break
 
             df['Price'] = (df.apply(lambda x: x['CasePrice'] * (1 - self.discount) + x['ticket'] if x['No.Case'] > 0 else x['SplitPrice'] +x['ticket'],axis=1) + ROUNDING_ERROR).round(2)
             df['flag'] = df.apply(lambda x: '!' if x['Price'] != x['Unit Cost'] else '', axis=1)
@@ -122,61 +128,38 @@ class NewOrder:
                 print (df['Ext Cost'].sum().round(2),(df['Price']*df['Qty']).sum().round(2) )
                 print (df.loc[df['flag'] == '!'])
                 msg = '= ' * 5 + 'Difference found !'
-                df = df.drop(columns=['Item','Supplier'])
+                df = df.drop(columns=['Item'])
                 df.to_csv(f'query_{k}.csv')
             else:
                 msg = '❀ ' * 5 + '   ALL CLEAR    ' + '❀ ' * 5
                 df.to_csv('Kell_hold.csv')
             print(msg)
-        return
+        return df
+    def ask_supplier_quote(self, notes=''):
+        # get_supplier_emails()   Update supplier contacts
 
-    def hold_inventory(self):
         df = self.read_customer_price()
-        code = get_customer_code(self.customer_id)
-        df["Product"] = df["Product"].str.replace(f"Y{code}", "")
-        df = df.groupby(by="Product").agg({'Qty': 'sum'})
-        print (df.groupby(by="Product").agg({'Qty': 'sum'}))
-        df.to_csv('hold_inventory.csv')
+        cols = ['Customer', 'Product', 'Product_long', 'Qty', 'Ship Date', 'Unit Cost', 'Supplier']
+        df = df.loc[df['Product_long'].str[0]=='Z', cols]
+        df['SUPPLR'] =df['Supplier'].str.extract(r'\(([^)]+)\)$')
+        conn = sqlite3.connect(PATH['db_path'])
+        su = pd.read_sql_query("SELECT * FROM supplier", conn)
+        df = df.merge(su, how='left', on='SUPPLR')
+        df['Qty'] = df['Qty'].astype(str)
+        df.loc[df['Qty']<='1','Qty'] = ''
+        df = df.fillna('')
+
+        for email in df['EMAIL'].unique():
+            ds = df.loc[df['EMAIL']==email]
+            customer = ds['Customer'].values[0]
+            supplier = ds['SUPPLR'].values[0]
+            ds = ds[['SUPPLR','Customer','Product','Product_long','Qty','Ship Date','Unit Cost']]
+            send_price_request(recipient=admin['testemail'], customer=customer,supplier=supplier, table=ds.to_html(), notes=notes)
+            # get_employee_emails('PP')
+        print (df)
         return
 
     def check_order_status(self, po=None):
-        item_tuple = tuple(['S4439', 'T2847', 'H1624', 'T3441'])
-
-        df = query_search(target='shipping')
-        df.to_csv('shipping.csv')
-        return
-        import sqlalchemy
-        for i in names.split('\n'):
-            print (' '*15,'\n',i)
-            query = f"select TOP 100000 * from kuradl_97x_740_prod_x.dbo.{i};"
-            try:
-                df = query_direct(query)
-                # df.to_csv('tmp.csv')
-                if (len(df)>0) and (len(df)<100):
-                    print (df.columns)
-                    print ('len of df:', len(df))
-                elif len(df)>=100:
-                    print (df.head(5))
-                    print (i,'\n','--'*10)
-                    df.to_csv(rf'{query.split(".")[-1][0:-1]}.csv')
-                else:
-                    print (i,'--'*5,'   EMPTY ','--'*10)
-            except sqlalchemy.exc.ProgrammingError as e:
-                print (i,':  ', e)
-                print ('^^^'*10)
-
-        # dummy_file, customer_file = get_ksa_filepath(po)
-        # du = pd.concat([extract_data(file=d) for d in dummy_file])
-        # df = pd.concat([extract_data(file=c) for c in customer_file])
-        # usecols = ['Product', 'Description', 'Ordered', "B/O'd", 'To Ship',
-        #            'Expected Date', 'Price', 'Status']
-        # df = df[usecols]
-        # du = du[['Product', 'Ordered', "B/O'd", 'To Ship', 'Expected Date']]
-        # df['Product_ID'] = df['Product'].str.replace(rf"Y{get_customer_code(po['customer_id'])}", "")
-        # print(len(df))
-        # print(len(df['Product_ID'].unique()))
-        # # df.merge(du, left_on=[])
-        # df.to_csv('tmp.csv')
         return
 def crack_pdf():
     from pypdf import PdfReader, PdfWriter
@@ -219,10 +202,17 @@ def query_item_info(discount=0.2, ticket=0.25):
 def main():
     # crack_pdf()
     # """        UNFINISHED         """
+    # new = NewOrder(
+    #     po={'customer_id': 'FL4494', 'sales_rep': 'cindy', 'dummy': '', "ticket": 0.45, "discount": 0.1,
+    #         'orders': {
+    #               1:{'customer':'KSA_467536_17.pdf','ksa': ''},    #
+    #         }}
+    # )
+
     new = NewOrder(
-        po={'customer_id': 'FL4494', 'sales_rep': 'cindy', 'dummy': '', "ticket": 0.45, "discount": 0.1,
+        po={'customer_id': 'SALEREP', 'sales_rep': 'Ross', 'dummy': '', "ticket": 0, "discount": 0,
             'orders': {
-                  1:{'customer':'KSA_467536_17.pdf','ksa': ''},    #
+                1: {'customer': 'Josephine/Josephine_KSA_orders.xlsx', 'ksa': ''},  #
             }}
     )
     # new = NewOrder(
@@ -246,7 +236,9 @@ def main():
 
     # new.check_order_status()
 
-    new.read_customer_price()
+    # new.read_customer_price()
+    #
+    new.ask_supplier_quote()
     # df.to_csv('tmp.csv')
     # print (df)
     # new.hold_inventory()

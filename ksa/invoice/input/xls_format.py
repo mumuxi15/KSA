@@ -49,14 +49,14 @@ def parse_customer_order(file, template):
               'PA6502': {'colname': {'Item':'Product', 'Unit Price':'Unit Cost', 'Total':'Ext Cost' }, 'skip': 0},
               'FL4494': {'colname':{'SKU Number  Description':'Description','Vendor Part No.':'Product', 'Qty Ord/ Pcs': 'Qty','Unit Retail':'Retail', 'Extended\nCost':'Ext Cost'},
                          'skip': 15},
-              'STEVE': {'colname':{}, 'skip': 0},
+              'SALEREP': {'colname':{}, 'skip': 0},
               }
 
     df = pd.read_excel(file,skiprows=mydict[template]['skip']).rename(columns=mydict[template]['colname'])
     df = df.loc[df['Product'].notna()]
     if template == 'FL4494':
         df['UPC'] = df['Description'].apply(extract_upc)
-    if template == 'STEVE':
+    if template == 'SALEREP':
         df = df.loc[df['Completed']!=1]
     return [df]
 

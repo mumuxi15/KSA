@@ -93,7 +93,7 @@ def send_email(recipient, sentfrom, title, highlight, table):
     
     <p class="red">IMPORTANT: YOU MUST BOOK OUR ORDER WITH MOL 3 WEEKS IN ADVANCE TO RESERVE A SPACE. </p>
     <p>Please cc Jackie when you send Lily invoices, packing list and FCR.</p>
-    <p>For any MOL-related questions, please email import@kurtadler.com or Charlene. </p>
+    <p>For any MOL-related questions, please email {ksa_employee['import']['email']} or Charlene. </p>
     <p>If there is a delay or need to extend the ship date, please email me. </p>
     <p>Thank you!</p>
     <p>
@@ -110,7 +110,6 @@ def send_email(recipient, sentfrom, title, highlight, table):
     # mail.Attachments.Add(attachment)
 
     mail.Send()
-
 
 def send_late_reminders(recipient, sentfrom, highlight, table):
     mail = outlook.CreateItem(0)
@@ -135,7 +134,7 @@ def send_late_reminders(recipient, sentfrom, highlight, table):
     <p>Hello, </p>
     <p class="red">Following items have been LATE. Please SHIP AS SOON AS POSSIBLE.<p>
     {table}
-    <p>If there are any shipping related questions, please email import@kurtadler.com or Charlene. </p>
+    <p>If there are any shipping related questions, please email {ksa_employee['import']['email']} or Charlene. </p>
     <p>Thank you!</p>
     <p>
     <br>{sentfrom}<br/>
@@ -150,6 +149,72 @@ def send_late_reminders(recipient, sentfrom, highlight, table):
     # mail.Attachments.Add(attachment)
 
     mail.Send()
+
+def send_msg_from_ksa(recipient):
+    mail = outlook.CreateItem(0)
+    mail.To = recipient
+    mail.Subject = 'A Message to All Chinese Vendors From Howard  '
+    mail.Body = 'KSA message from Howard'
+    mail.HTMLBody = f"""
+    <!doctype html>
+    <html>
+        <head>
+        </head>
+    <body>
+    <p>Hello, </p>
+    <p>As you have heard or read, President Trump is likely planning on putting a 10% tariff on all goods from China. 
+We cannot absorb the entire tariff  and cannot pass it on to our customers or they will probably cancel  many items. We  are going  to need your help with a reduction in  pricing  in order to be able to sell your product. What we feel is fair at this time is splitting the tariff. This means  a 5% reduction in your prices to us and we will absorb the other 5%. If the tariff amount changes up or down, we will still go with the 50/50 split.
+The 5% or what ever the % is will be deducted when paying your invoices.
+Thank you for your cooperation.<p>
+    <p>Any comments, please send to Howard (hadler@kurtadler.com).  </p>
+    <p>If you agree, please reply to Penny to confirm your acceptance of the 50/50 split. </p>
+    <p>
+    <br>Howard<br/>
+    </p>
+
+    </body>
+    </html>"""
+
+    # To attach a file to the email (optional):
+    # attachment  = "Path to the attachment"
+    # mail.Attachments.Add(attachment)
+
+    mail.Send()
+
+def send_price_request(recipient, customer, supplier,table,notes):
+    mail = outlook.CreateItem(0)
+    mail.To = recipient
+    mail.Subject = f"KSA order - {customer} - {supplier}"
+    mail.Body = f"KSA order - {customer}"
+    mail.HTMLBody = f"""
+    <!doctype html>
+    <html>
+        <head>
+            <style>
+                table, th, td {{
+                  border: 1px solid black;
+                  border-collapse: collapse;
+                }}
+            </style>
+        </head>
+    <body>
+    <p>Hello, </p>
+    <p>Could you please fill in the Unit Cost, MOQ, and Ship Date below thanks. <p>
+    {table}
+    <br>
+    {notes}
+    <p>Thank you!</p>
+    <p>
+    <br>{ksa_employee['PP']['name']}<br/>
+    {ksa_employee['PP']['address']}
+    </p>
+   
+    </body>
+    </html>"""
+    mail.Send()
+
+
+
 def get_employee_emails(name):
     return ksa_employee[name]['email']
 def text_filtering(s):

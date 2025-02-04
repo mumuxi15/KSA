@@ -3,7 +3,7 @@ import datetime, os, environ
 import gspread
 import calendar
 from dateutil import relativedelta
-from shipping import send_email, send_late_reminders, read_email, get_employee_emails
+from shipping import send_email, send_late_reminders, read_email, get_employee_emails,send_msg_from_ksa
 from query import query_search, query_direct
 from config.env import PATH, env
 
@@ -164,6 +164,31 @@ def update_supplier_data():
     df = query_search(target="getsupplrcontacts")
     # df.to_csv('tmp.csv')
     print (df)
+def send_emails_howard():
+    df = pd.read_excel('data/Vendor Listing.xlsx',usecols=['SUPPLR', 'SUPPLRDES', 'COUNTRY', 'FOB', 'EMAIL'])
+    df = df.loc[(df['SUPPLR'].notna())&(df['SUPPLR']!='T999')]
+
+    ds = get_supplier_contacts()
+    df = df.merge(ds,on='SUPPLR',how='left')
+    df['flag']= (df['EMAIL_x']!=df['EMAIL_y'])*1
+    df['flag'] = (df['EMAIL_y'].isin(df['EMAIL_x']))*1
+    df.to_csv('tmp.csv')
+    print (df.head())
+    # print (ds.head())
+    return
+
+    # df = df.loc[(df['COUNTRY'].isin(['HK','CN']))|(df['SUPPLR']=='T00106')]
+    # df = df['EMAIL'].str.split(";",expand=True)
+    # all_emails = df.values.flatten()
+    # all_emails = [email for email in all_emails if email is not None]
+    # all_emails = sorted(set(all_emails))
+    # for email in all_emails:
+        # send_msg_from_ksa(recipient=email)
+    # emails = df['EMAIL'].unique()
+    # for e in emails:
+    #     e.split(";")
+    # print (emails)
+    # print (df.columns)
 
 
 if __name__ == '__main__':
@@ -175,7 +200,8 @@ if __name__ == '__main__':
 
     # update_supplier_data()
 
-    df, ann = query_open_order(Ann=True)
+    send_emails_howard()
+    # df, ann = query_open_order(Ann=True)
     # print (df)
     # print (ann)
     # email_suppliers(df, sendto='default')  #send emails monthly
