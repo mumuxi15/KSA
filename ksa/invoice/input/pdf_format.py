@@ -1,4 +1,4 @@
-from .customer.pdf_format import MA0603, NV0356, FL4494
+from .customer.pdf_format import MA0603, NV0356, FL4494, FL2658
 import tabula
 import pandas as pd
 
@@ -25,26 +25,25 @@ def parse_ksa_order(file):
     df = df.loc[df['Product'].notna()]
     return df
 
-def parse_customer_order(file, customer_id, template=None):
+def parse_customer_order(file, customer_id):
     " return list of dataframe of each page"
     # tables = tabula.read_pdf(input_path=file, pages='all', multiple_tables=True)
     # dfs = []
-    print('template: ', template)
     dfs = []
 
-    if customer_id == 'MA0603':
-        template = MA0603
+    template_map =  {
+    'MA0603': MA0603,
+    'NV0356': NV0356,
+    'FL4494': FL4494,
+    'FL2658': FL2658,
+    }
+    template = template_map.get(customer_id)
+    if template:
         dfs = template.read_po(file)
+    else:
+        raise ValueError('Unknown customer ID template not found', customer_id)
 
-    elif customer_id == 'NV0356':
-        template = NV0356
-        dfs = template.read_po(file)
-
-    elif customer_id == 'FL4494':
-        template = FL4494
-        dfs = template.read_po(file)
-
-    elif template == 'AZ1239':
+    if template == 'AZ1239':
         tables = tabula.read_pdf(input_path=file, pages='all', multiple_tables=True)
         tables[0] = tabula.read_pdf(input_path=file, pages='1', area=[414, 14.4, 575, 773])[0]
         for df in tables:
@@ -66,41 +65,6 @@ def parse_customer_order(file, customer_id, template=None):
             dfs.append(df[['Product','Qty', 'Unit Cost', 'Ext Cost' ]])
         return dfs
 
-    # elif template =='FL4494':
-        # !!!!!!!!!!!!!!!!   SINGLE PAGE  !!!!!!!!!!!!!!!
-        # tables[0] = tabula.read_pdf(input_path=file, pages='1', area=[226, 0, 540, 751], guess=False)[0]
-        # df = tabula.read_pdf(input_path=file, pages='1', guess=True)
-        # print (file)
-        # tables = tabula.read_pdf(input_path=file, pages='all', multiple_tables=True)
-        # df = tabula.read_pdf(input_path=file, pages='1', guess=True,area=[226, 0, 540, 751])[0]
-        # # print (df)
-        # if 'Description' not in df.columns:
-        #     # print (df)
-        #     i = df[df[df.columns[0]].str.contains('Description')==True]
-        #     if 'Description' in df.columns[0]:
-        #         df.columns = ['Description'] + list(df.columns[1::])
-        #         print (df)
-        #     else:
-        #         print (df)
-        #         print ('TRY CONVERT TO EXCEL ')
-        #
-        #     df.columns = i.values[0]
-        #     df = df[i.index[0]+1:-1]
-        # df.columns = ['Description','Product']+ list(df.columns[2:-1])+['Ext Cost']
-        # df = df.loc[:, ~df.columns.duplicated()]
-        # df.update(df['Product'].fillna(df['Description'].str.split().str[-1]))
-        # df['UPC2'] = df['Product'].shift(-1)
-        # df['UPC']  = df['Product'].shift(-2)
-        # df['UPC'] = df['UPC'].where(df['UPC'].str.isnumeric(), df['UPC2'])
-        # # df.columns = df.columns + np.vectorize(lambda x: '_2' if x else '')(df.columns.duplicated())
-        # df = df[df['Product'].str.contains(r'(?=.*[A-Z])(?=.*\d)', regex=True)]
-        #
-        # df = df.rename(columns={'Pcs':'Qty','Cost':'Unit Cost'})
-        # # to numeric
-        # numeric_columns = ['Qty', 'Unit Cost', 'Ext Cost', 'Retail']
-        # df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors='coerce')
-        # dfs.append(df[['Product', 'Description', 'Qty', 'Unit Cost', 'Ext Cost', 'Retail', 'UPC']])
-
     elif template=='PA1683':
         tables = tabula.read_pdf(input_path=file, pages='all', multiple_tables=True)
         for df in tables:
@@ -115,9 +79,6 @@ def parse_customer_order(file, customer_id, template=None):
                 df = df.loc[~df['Qty'].isna()]
                 dfs.append(df)
         return dfs
-
-    else:
-        print (template, '  parse_customer_order()  pdf_format not defined yet')
 
     ### all return dfs ######
     return dfs

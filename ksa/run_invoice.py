@@ -98,16 +98,15 @@ class NewOrder:
         """
         for k, order in self.orders.items():
             df = pd.concat(self.read_customer_po(order['customer']))
-            # df.to_csv(order['customer'].replace('.pdf','.csv'))  # save customer po pdf to csv
             df['ticket'] = self.ticket
-            if 'updates' in order:
-                for item_id, v in order['updates'].items():
-                    for col, value in v.items():
-                        df.loc[df['Product'] == item_id, col] = value
-                        print('updated ', item_id, col, value)
+            # if 'updates' in order:
+            #     for item_id, v in order['updates'].items():
+            #         for col, value in v.items():
+            #             df.loc[df['Product'] == item_id, col] = value
+            #             print('updated ', item_id, col, value)
             quoted_items ='(' + ','.join([f"'{item}'" for item in df['Product'].values])+ ')'
             query = query_search(target='inventory', item_tuple=quoted_items) # read_inventory from dbo
-
+            print (query)
             df = pd.merge(df, query, how='left', left_on='Product', right_on='Item')
             if len(df.loc[df['Status'].isna()])>0:
                 print (df.loc[df['Status'].isna()])
@@ -116,10 +115,9 @@ class NewOrder:
             if len(df.loc[df['Qty']>df['NETAVAIL']])>0:
                 print ('----'*5,'NET AVAILABLE ERROR :   QTY WANTED > AVAILABLE ','----'*5)
                 print (df.loc[df['Qty']>df['NETAVAIL']])
-
+            print (df)
             df['caseflag'] = df['Qty'].astype(int) % df['CaseQty'].astype(int)
             df.loc[df['caseflag'] == 0, 'No.Case'] = df.loc[df['caseflag'] == 0, 'Qty'] // df.loc[df['caseflag'] == 0, 'CaseQty']
-
             df['Price'] = (df.apply(lambda x: x['CasePrice'] * (1 - self.discount) + x['ticket'] if x['No.Case'] > 0 else x['SplitPrice'] +x['ticket'],axis=1) + ROUNDING_ERROR).round(2)
             df['flag'] = df.apply(lambda x: '!' if x['Price'] != x['Unit Cost'] else '', axis=1)
             df = df.drop(columns=['caseflag'])
@@ -131,6 +129,8 @@ class NewOrder:
                 df = df.drop(columns=['Item'])
                 df.to_csv(f'query_{k}.csv')
             else:
+                print (df)
+
                 msg = '❀ ' * 5 + '   ALL CLEAR    ' + '❀ ' * 5
                 df.to_csv('Kell_hold.csv')
             print(msg)
@@ -209,18 +209,18 @@ def main():
     #         }}
     # )
 
-    new = NewOrder(
-        po={'customer_id': 'SALEREP', 'sales_rep': 'Ross', 'dummy': '', "ticket": 0, "discount": 0,
-            'orders': {
-                1: {'customer': 'Josephine/Josephine_KSA_orders.xlsx', 'ksa': ''},  #
-            }}
-    )
     # new = NewOrder(
-    #     po = { "customer_id":"MA0603", "sales_rep":"Jeff", "ticket":0.37, "discount":0, "dummy": "",
-    #            "orders":{
-    #                "1": {"customer":"PO_82_2192449_0_US.pdf","ksa": ""}
-    #            }}
+    #     po={'customer_id': 'SALEREP', 'sales_rep': 'Cindy', 'dummy': '', "ticket": 0, "discount": 0.2,
+    #         'orders': {
+    #             1: {'customer': 'Cindy/Cindy_KSA_orders.xlsx', 'ksa': ''},  #
+    #         }}
     # )
+    new = NewOrder(
+        po = { "customer_id":"FL2658", "sales_rep":"Cindy", "ticket":0, "discount":0.2, "dummy": "",
+               "orders":{
+                   "1": {"customer":"KSA_PO_10558.pdf","ksa": ""}
+               }}
+    )
     # new = NewOrder(
     #     po={"customer_id": "NV0356", "sales_rep": "Caryl", "ticket": 0.37, "discount": 0.1, "dummy": "",
     #         "orders": {
@@ -236,9 +236,9 @@ def main():
 
     # new.check_order_status()
 
-    # new.read_customer_price()
+    new.read_customer_price()
     #
-    new.ask_supplier_quote()
+    # new.ask_supplier_quote()
     # df.to_csv('tmp.csv')
     # print (df)
     # new.hold_inventory()
